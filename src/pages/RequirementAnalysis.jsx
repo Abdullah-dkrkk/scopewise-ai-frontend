@@ -69,8 +69,8 @@ export default function RequirementAnalysis() {
 
     if (!result.analysisId) {
       throw new Error(
-        'The analysis completed but no analysis id was returned. '
-        + 'Check that the backend persists an Analysis (see BACKEND_REQUIREMENTS.md B4).',
+        'The analysis finished but returned no analysis id, so there is nothing to show. '
+        + 'Try re-running it from the project page.',
       );
     }
 
@@ -104,8 +104,8 @@ export default function RequirementAnalysis() {
 
       {projects.length === 0 && (
         <Alert variant="info" className="mb-4">
-          No projects found. You can still analyse a requirement without linking it to a
-          project, or create a project first to keep things organised.
+          No projects yet. Create one first — every analysis is filed under a
+          project so history and dashboards stay organised.
         </Alert>
       )}
 

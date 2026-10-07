@@ -15,7 +15,12 @@ export async function login({ email, password }) {
 
 export async function register({ name, email, password }) {
   const payload = await api.post(ROUTES.auth.register, {
-    name, email, password,
+    name,
+    email,
+    password,
+    // Laravel validates `password` with the `confirmed` rule, so the
+    // confirmation field the form already collects has to travel with it.
+    password_confirmation: password,
   });
   const { user, token } = mapAuthResponse(payload);
   setToken(token);

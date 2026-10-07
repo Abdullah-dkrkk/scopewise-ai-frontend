@@ -14,7 +14,7 @@ export const ROUTES = {
     me: '/auth/me',
     password: '/auth/password',
     forgotPassword: '/auth/forgot-password',
-    reset: '/auth/reset-password',
+    reset: '/auth/reset',
   },
   projects: {
     index: '/projects',

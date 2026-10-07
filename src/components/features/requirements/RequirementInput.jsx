@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Wand2 } from 'lucide-react';
 import Button from '../../ui/Button';
@@ -10,13 +10,26 @@ const MAX_CHARS = 20000;
 const MIN_WORDS = 3;
 
 export default function RequirementInput({
-  projects, onSubmit, initialProjectId = '', initialText = '',
+  projects = [], onSubmit, initialProjectId = '', initialText = '',
 }) {
   const [text, setText] = useState(initialText);
-  const [projectId, setProjectId] = useState(initialProjectId);
+  // A requirement always belongs to a project, so fall back to the first one
+  // rather than offering a "no project" option the API would reject.
+  const [projectId, setProjectId] = useState(
+    initialProjectId || (projects[0] ? projects[0].id : ''),
+  );
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState('');
 
+  // The project list arrives after first render, so adopt a valid selection
+  // once it is there instead of holding an id the select cannot render.
+  useEffect(() => {
+    if (projects.length === 0) return;
+    const stillValid = projects.some((project) => project.id === projectId);
+    if (!stillValid) setProjectId(projects[0].id);
+  }, [projects, projectId]);
+
+  const hasProject = Boolean(projectId);
   const wordCount = text.split(/\s+/).filter(Boolean).length;
 
   async function handleSubmit(event) {
@@ -31,10 +44,14 @@ export default function RequirementInput({
       setError(`Please add a bit more detail — at least ${MIN_WORDS} words helps the analysis.`);
       return;
     }
+    if (!hasProject) {
+      setError('Create a project first — every analysis is tracked inside one.');
+      return;
+    }
 
     setAnalyzing(true);
     try {
-      await onSubmit(projectId || null, text.trim());
+      await onSubmit(projectId, text.trim());
     } catch (err) {
       setError(toMessage(err, 'Analysis failed. Please try again.'));
       setAnalyzing(false);
@@ -77,12 +94,10 @@ export default function RequirementInput({
         </div>
       </div>
 
-      {projects && projects.length > 0 && (
+      {projects.length > 0 ? (
         <div>
           <label htmlFor="project-select" className="mb-1.5 block text-sm font-medium">
             Project
-            {' '}
-            <span className="font-normal text-muted-foreground">(optional)</span>
           </label>
           <select
             id="project-select"
@@ -91,15 +106,24 @@ export default function RequirementInput({
             disabled={analyzing}
             className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            <option value="">No project</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>{project.name}</option>
             ))}
           </select>
         </div>
+      ) : (
+        <Alert variant="info">
+          Every analysis belongs to a project. Create one first, then come back
+          to analyse this requirement.
+        </Alert>
       )}
 
-      <Button type="submit" size="lg" className="w-full" disabled={analyzing || !text.trim()}>
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full"
+        disabled={analyzing || !text.trim() || !hasProject}
+      >
         {analyzing ? (
           <>
             <Spinner size="sm" className="text-primary-foreground" />
