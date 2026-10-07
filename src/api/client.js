@@ -41,12 +41,58 @@ const http = axios.create({
   withCredentials: true,
 });
 
-http.interceptors.request.use((config) => {
+const SAFE_METHODS = new Set(['get', 'head', 'options']);
+
+let csrfBootstrap = null;
+
+/**
+ * Seed Laravel's `XSRF-TOKEN` cookie before the first stateful write.
+ *
+ * `statefulApi()` puts every request from a stateful origin through
+ * `ValidateCsrfToken`, and that cookie is only ever minted by
+ * `GET /sanctum/csrf-cookie`. Without it every POST answers 419
+ * "CSRF token mismatch." Safe methods are skipped so plain reads stay a
+ * single round-trip.
+ *
+ * @returns {Promise<void>} resolves once the cookie exists (or the attempt is abandoned)
+ */
+async function ensureCsrfCookie() {
+  if (getCsrfCookie()) return;
+
+  if (!csrfBootstrap) {
+    const url = API_URL
+      ? new URL('/sanctum/csrf-cookie', API_URL).toString()
+      : '/sanctum/csrf-cookie';
+
+    csrfBootstrap = axios
+      .get(url, {
+        withCredentials: true,
+        timeout: REQUEST_TIMEOUT_MS,
+        headers: { Accept: 'application/json' },
+      })
+      .then(() => undefined)
+      .catch((error) => {
+        // Let the next request retry rather than failing forever on one blip.
+        csrfBootstrap = null;
+        throw error;
+      });
+  }
+
+  await csrfBootstrap;
+}
+
+http.interceptors.request.use(async (config) => {
   const headers = config.headers || {};
   const token = getToken();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
+
+  const method = (config.method || 'get').toLowerCase();
+  if (!SAFE_METHODS.has(method)) {
+    await ensureCsrfCookie();
+  }
+
   const csrf = getCsrfCookie();
   if (csrf) {
     headers['X-XSRF-TOKEN'] = decodeURIComponent(csrf);
